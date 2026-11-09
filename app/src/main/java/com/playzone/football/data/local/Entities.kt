@@ -33,7 +33,8 @@ data class MatchEntity(
     val simAwayProb: Int,
     val simOverProb: Int,
     val simUnderProb: Int,
-    val eventsJson: String
+    val eventsJson: String,
+    val statsJson: String = "{}"
 )
 
 @Entity(tableName = "predictions")
@@ -44,6 +45,7 @@ data class PredictionEntity(
     val outcomeType: PredictionOutcomeType,
     val outcomeLabel: String,
     val simProbability: Int,
+    val oddsMultiplier: Double = 1.85,
     val stakeCredits: Long,
     val potentialReturn: Long,
     val status: PredictionStatus,
@@ -71,4 +73,14 @@ data class ResponsibleSettingsEntity(
     val isPaused: Boolean = false,
     val pauseUntil: Long = 0L,
     val lastActiveTimestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "user_settings")
+data class UserSettingsEntity(
+    @PrimaryKey val id: Int = 1,
+    val apiFootballKey: String = "",
+    val useLiveApi: Boolean = false,
+    val customApiConnected: Boolean = false,
+    val apiRemainingCalls: Int = 100,
+    val lastSyncTime: String = "همگام‌سازی شده"
 )

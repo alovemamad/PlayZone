@@ -21,6 +21,11 @@ interface FootballApiService {
         @Header("x-apisports-key") apiKey: String,
         @Query("date") date: String
     ): ApiFootballResponse<ApiFixtureItem>
+
+    @GET("v3/status")
+    suspend fun getApiStatus(
+        @Header("x-apisports-key") apiKey: String
+    ): ApiStatusResponse
 }
 
 object RetrofitClient {

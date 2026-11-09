@@ -7,7 +7,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.playzone.football.ui.theme.*
 import com.playzone.football.viewmodel.MainViewModel
 
@@ -26,13 +32,22 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var apiKeyInput by remember { mutableStateOf("") }
-    var selectedProvider by remember { mutableStateOf("demo") }
+    val userSettings by viewModel.userSettings.collectAsStateWithLifecycle()
+    val isLiveApi by viewModel.isLiveApiActive.collectAsStateWithLifecycle()
+    val apiStatusMessage by viewModel.apiStatusMessage.collectAsStateWithLifecycle()
+
+    var apiKeyInput by remember(userSettings.apiFootballKey) {
+        mutableStateOf(userSettings.apiFootballKey)
+    }
+    var useLiveApiSwitch by remember(userSettings.useLiveApi) {
+        mutableStateOf(userSettings.useLiveApi)
+    }
+    var isCheckingConnection by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("تنظیمات برنامه", color = TextWhite, fontWeight = FontWeight.Bold) },
+                title = { Text("تنظیمات و اتصال API فوتبال", color = TextWhite, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("btn_back_settings")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت", tint = TextWhite)
@@ -51,78 +66,47 @@ fun SettingsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Data Provider Section
+            // Live Status Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = NavyCard)
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isLiveApi) Color(0xFF003816) else NavyCardElevated
+                    )
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Text(
-                            text = "منبع داده‌های فوتبال (Data Provider)",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextWhite,
-                            fontWeight = FontWeight.Bold
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isLiveApi) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                            contentDescription = null,
+                            tint = if (isLiveApi) GreenAccent else CyanAccent,
+                            modifier = Modifier.size(32.dp)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "PlayZone از دو حالت پشتیبانی می‌کند: شبیه‌ساز کامل آفلاین با مسابقات واقعی لیگ‌های معتبر و پشتیبانی از اتصال به API-Football / TheSportsDB.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextGrayLight
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = selectedProvider == "demo",
-                                onClick = { selectedProvider = "demo" },
-                                colors = RadioButtonDefaults.colors(selectedColor = GreenAccent)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (isLiveApi) "اتصال آنلاین به API-Football فعال است" else "حالت شبیه‌ساز هوشمند فعال است",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextWhite,
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text("شبیه‌ساز هوشمند داخلی (فعال - بدون نیاز به اینترنت)", style = MaterialTheme.typography.bodyMedium, color = TextWhite, fontWeight = FontWeight.Bold)
-                                Text("مسابقات واقعی UCL، انگلیس، لالیگا و لیگ برتر ایران با رویدادهای زنده", style = MaterialTheme.typography.bodySmall, color = TextGrayMuted)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = selectedProvider == "api",
-                                onClick = { selectedProvider = "api" },
-                                colors = RadioButtonDefaults.colors(selectedColor = GreenAccent)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text("اتصال به سرور API-Football", style = MaterialTheme.typography.bodyMedium, color = TextWhite, fontWeight = FontWeight.Bold)
-                                Text("استفاده از کلید اشتراک اختصاصی", style = MaterialTheme.typography.bodySmall, color = TextGrayMuted)
-                            }
-                        }
-
-                        if (selectedProvider == "api") {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = apiKeyInput,
-                                onValueChange = { apiKeyInput = it },
-                                label = { Text("کلید API-Football (اختیاری)") },
-                                placeholder = { Text("مثال: 98a76b5c4d...") },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = GreenAccent,
-                                    unfocusedBorderColor = NavyBorder,
-                                    focusedTextColor = TextWhite,
-                                    unfocusedTextColor = TextWhite
-                                )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = apiStatusMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isLiveApi) GreenOnContainer else TextGrayLight
                             )
                         }
                     }
                 }
             }
 
-            // Language & Direction
+            // API-Football Configuration Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -130,6 +114,154 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(containerColor = NavyCard)
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.VpnKey, contentDescription = null, tint = GreenAccent, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "پیکربندی کلید API-Football",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextWhite,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "اگر دارای کلید API اختصاصی از سایت api-football.com یا api-sports.io هستید، می‌توانید آن را در کادر زیر وارد کنید تا مسابقات زنده بین‌المللی مستقیماً از سرور دریافت شوند:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextGrayLight,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("کلید اختصاصی API-Football (اختیاری)") },
+                            placeholder = { Text("مثال: 94a8bc371e...") },
+                            leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = CyanAccent) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = GreenAccent,
+                                unfocusedBorderColor = NavyBorder,
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                focusedContainerColor = NavySurface,
+                                unfocusedContainerColor = NavySurface
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "استفاده از داده‌های آنلاین سرور",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextWhite,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "در صورت خاموش بودن، مسابقات از شبیه‌ساز داخلی با داده‌های واقعی خوانده می‌شوند.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextGrayMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = useLiveApiSwitch,
+                                onCheckedChange = { useLiveApiSwitch = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = NavyDarkest,
+                                    checkedTrackColor = GreenAccent
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    isCheckingConnection = true
+                                    viewModel.saveApiConfig(apiKeyInput.trim(), useLiveApiSwitch)
+                                    isCheckingConnection = false
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = GreenAccent,
+                                    contentColor = NavyDarkest
+                                )
+                            ) {
+                                if (isCheckingConnection) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NavyDarkest, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                }
+                                Text("ذخیره و اتصال به سرور", fontWeight = FontWeight.Bold)
+                            }
+
+                            if (apiKeyInput.isNotBlank()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        apiKeyInput = ""
+                                        useLiveApiSwitch = false
+                                        viewModel.saveApiConfig("", false)
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextGrayLight)
+                                ) {
+                                    Text("حذف کلید")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Information on Free API Key
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = NavyCardElevated)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "نحوه دریافت کلید رایگان API-Football:",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = CyanAccent,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "۱. به وب‌سایت dashboard.api-football.com مراجعه کرده و ثبت نام کنید.\n" +
+                                   "۲. در بخش API Key، کلید اختصاصی رایگان خود را کپی کنید (دارای ۱۰۰ درخواست رایگان در روز).\n" +
+                                   "۳. کلید را در کادر بالا وارد کرده و دکمه «ذخیره و اتصال» را فشار دهید.\n" +
+                                   "۴. در صورتی که کلید وارد نکنید، شبیه‌ساز پیشرفته PlayZone تمامی مسابقات لیگ‌های برتر ایران و اروپا را به شکل زنده شبیه‌سازی می‌کند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextGrayLight,
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+            }
+
+            // Language & Direction Info
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = NavyCard)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "زبان و چیدمان رابط کاربری",
                             style = MaterialTheme.typography.titleMedium,
@@ -144,28 +276,10 @@ fun SettingsScreen(
                         ) {
                             Column {
                                 Text("زبان: فارسی (Iran)", style = MaterialTheme.typography.bodyMedium, color = TextWhite)
-                                Text("فونت: وزیرمتن (Vazirmatn) • جهت: راست‌به‌چپ (RTL)", style = MaterialTheme.typography.bodySmall, color = TextGrayMuted)
+                                Text("فونت: وزیرمتن (Vazirmatn) • چیدمان: راست‌به‌چپ (RTL)", style = MaterialTheme.typography.bodySmall, color = TextGrayMuted)
                             }
                             Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = GreenAccent)
                         }
-                    }
-                }
-            }
-
-            // App Identity Info
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = NavyCardElevated)
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Text("مشخصات نسخه برنامه", style = MaterialTheme.typography.titleMedium, color = TextWhite, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text("نام برنامه: PlayZone", style = MaterialTheme.typography.bodySmall, color = TextGrayLight)
-                        Text("پکیج: com.playzone.football", style = MaterialTheme.typography.bodySmall, color = TextGrayLight)
-                        Text("نوع نسخه: Release", style = MaterialTheme.typography.bodySmall, color = GreenAccent)
-                        Text("پایگاه داده: SQLite / Room Database", style = MaterialTheme.typography.bodySmall, color = TextGrayLight)
                     }
                 }
             }

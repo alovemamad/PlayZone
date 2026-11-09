@@ -7,7 +7,7 @@ import com.squareup.moshi.JsonClass
 data class ApiFootballResponse<T>(
     @field:Json(name = "get") val get: String? = null,
     @field:Json(name = "results") val results: Int = 0,
-    @field:Json(name = "errors") val errors: List<String>? = null,
+    @field:Json(name = "errors") val errors: Any? = null,
     @field:Json(name = "response") val response: List<T> = emptyList()
 )
 
@@ -60,4 +60,27 @@ data class ApiTeamDetails(
 data class ApiGoalsDetails(
     @field:Json(name = "home") val home: Int? = null,
     @field:Json(name = "away") val away: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiStatusResponse(
+    @field:Json(name = "response") val response: ApiStatusData? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiStatusData(
+    @field:Json(name = "requests") val requests: ApiRequestsInfo? = null,
+    @field:Json(name = "subscription") val subscription: ApiSubscriptionInfo? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiRequestsInfo(
+    @field:Json(name = "current") val current: Int? = 0,
+    @field:Json(name = "limit_day") val limitDay: Int? = 100
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiSubscriptionInfo(
+    @field:Json(name = "plan") val plan: String? = "Free",
+    @field:Json(name = "active") val active: Boolean? = true
 )

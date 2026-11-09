@@ -11,9 +11,10 @@ import androidx.room.TypeConverters
         MatchEntity::class,
         PredictionEntity::class,
         WalletEntity::class,
-        ResponsibleSettingsEntity::class
+        ResponsibleSettingsEntity::class,
+        UserSettingsEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -22,6 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun predictionDao(): PredictionDao
     abstract fun walletDao(): WalletDao
     abstract fun responsibleSettingsDao(): ResponsibleSettingsDao
+    abstract fun userSettingsDao(): UserSettingsDao
 
     companion object {
         @Volatile

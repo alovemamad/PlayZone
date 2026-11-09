@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.playzone.football.PlayZoneApp
+import com.playzone.football.data.local.UserSettingsEntity
 import com.playzone.football.data.model.League
 import com.playzone.football.data.model.Match
 import com.playzone.football.data.model.MatchStatus
@@ -35,11 +36,20 @@ class MainViewModel(
     val leagues: List<League> = footballRepository.leagues
     val teams: List<Team> = footballRepository.teams
 
+    val isLiveApiActive: StateFlow<Boolean> = footballRepository.isLiveApiActive
+    val apiStatusMessage: StateFlow<String> = footballRepository.apiStatusMessage
+
+    val userSettings: StateFlow<UserSettingsEntity> = footballRepository.getUserSettingsFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserSettingsEntity())
+
     private val _selectedLeagueFilter = MutableStateFlow<String?>(null)
     val selectedLeagueFilter: StateFlow<String?> = _selectedLeagueFilter.asStateFlow()
 
     private val _matchStatusFilter = MutableStateFlow<MatchStatus?>(null)
     val matchStatusFilter: StateFlow<MatchStatus?> = _matchStatusFilter.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val rawMatches: StateFlow<List<Match>> = footballRepository.getAllMatchesFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -47,11 +57,19 @@ class MainViewModel(
     val filteredMatches: StateFlow<List<Match>> = combine(
         rawMatches,
         _selectedLeagueFilter,
-        _matchStatusFilter
-    ) { matches, leagueId, status ->
+        _matchStatusFilter,
+        _searchQuery
+    ) { matches, leagueId, status, query ->
         matches.filter { match ->
-            (leagueId == null || match.leagueId == leagueId) &&
-            (status == null || match.status == status)
+            val matchesLeague = (leagueId == null || match.leagueId == leagueId)
+            val matchesStatus = (status == null || match.status == status)
+            val matchesQuery = query.isBlank() ||
+                    match.homeTeamPersian.contains(query, ignoreCase = true) ||
+                    match.awayTeamPersian.contains(query, ignoreCase = true) ||
+                    match.homeTeamName.contains(query, ignoreCase = true) ||
+                    match.awayTeamName.contains(query, ignoreCase = true) ||
+                    match.leaguePersianName.contains(query, ignoreCase = true)
+            matchesLeague && matchesStatus && matchesQuery
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -82,6 +100,10 @@ class MainViewModel(
         _matchStatusFilter.value = status
     }
 
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
     fun openPredictionModal(match: Match, outcome: PredictionOutcomeType) {
         val settings = responsibleSettings.value
         if (settings.isPaused) {
@@ -106,7 +128,7 @@ class MainViewModel(
         viewModelScope.launch {
             val result = predictionRepository.placePrediction(match, outcome, stake)
             result.onSuccess {
-                _userMessage.emit("پیش‌بینی مجازی شما با موفقیت ثبت گردید.")
+                _userMessage.emit("پیش‌بینی مجازی با موفقیت ثبت شد.")
                 closePredictionModal()
             }.onFailure { ex ->
                 _userMessage.emit(ex.message ?: "خطا در ثبت پیش‌بینی")
@@ -117,14 +139,30 @@ class MainViewModel(
     fun resolvePrediction(predictionId: Long, didWin: Boolean) {
         viewModelScope.launch {
             predictionRepository.resolvePrediction(predictionId, didWin)
-            _userMessage.emit(if (didWin) "پیش‌بینی برنده شد و اعتبار مجازی اضافه شد!" else "نتیجه پیش‌بینی به پایان رسید.")
+            _userMessage.emit(if (didWin) "پیش‌بینی برنده شد و اعتبار مجازی افزوده شد!" else "نتیجه بازی ثبت شد.")
+        }
+    }
+
+    // Custom wallet balance update requested by user
+    fun setCustomWalletBalance(amount: Long) {
+        viewModelScope.launch {
+            predictionRepository.setCustomBalance(amount)
+            _userMessage.emit("موجودی کیف پول با موفقیت به %,d اعتبار تغییر یافت.".format(amount))
         }
     }
 
     fun refillCredits() {
+        setCustomWalletBalance(100_000L)
+    }
+
+    fun saveApiConfig(apiKey: String, useLive: Boolean) {
         viewModelScope.launch {
-            predictionRepository.resetVirtualBalance()
-            _userMessage.emit("۱۰۰,۰۰۰ اعتبار مجازی رایگان با موفقیت به کیف پول افزوده شد.")
+            val result = footballRepository.saveApiConfig(apiKey, useLive)
+            result.onSuccess { msg ->
+                _userMessage.emit(msg)
+            }.onFailure { err ->
+                _userMessage.emit(err.message ?: "خطا در برقراری ارتباط")
+            }
         }
     }
 

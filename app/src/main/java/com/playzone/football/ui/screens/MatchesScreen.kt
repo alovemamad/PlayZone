@@ -11,15 +11,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.playzone.football.data.model.Match
 import com.playzone.football.data.model.MatchStatus
 import com.playzone.football.data.model.PredictionOutcomeType
 import com.playzone.football.ui.components.LeagueFilterBar
 import com.playzone.football.ui.components.MatchCard
+import com.playzone.football.ui.components.SearchBarField
 import com.playzone.football.ui.theme.*
 import com.playzone.football.viewmodel.MainViewModel
 
@@ -33,6 +34,8 @@ fun MatchesScreen(
     onPredictClick: (Match, PredictionOutcomeType) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+
     val tabs = listOf(
         null to "همه مسابقات",
         MatchStatus.LIVE to "زنده",
@@ -77,6 +80,13 @@ fun MatchesScreen(
             }
         }
 
+        // Search Bar
+        SearchBarField(
+            query = searchQuery,
+            onQueryChange = { viewModel.onSearchQueryChanged(it) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
         // League Filters
         LeagueFilterBar(
             leagues = viewModel.leagues,
@@ -101,13 +111,13 @@ fun MatchesScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "هیچ مسابقه‌ای در این دسته‌بندی یافت نشد",
+                        text = "هیچ مسابقه‌ای یافت نشد",
                         style = MaterialTheme.typography.titleMedium,
                         color = TextGrayLight
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "لطفاً فیلتر لیگ یا وضعیت مسابقه را تغییر دهید.",
+                        text = "عبارت جستجو یا فیلتر لیگ را تغییر دهید.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextGrayMuted
                     )
@@ -116,10 +126,10 @@ fun MatchesScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 80.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 80.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(matches) { match ->
+                items(matches, key = { it.id }) { match ->
                     MatchCard(
                         match = match,
                         onMatchClick = { onNavigateToMatch(match.id) },

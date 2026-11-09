@@ -5,9 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TrendingUp
@@ -20,7 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.playzone.football.data.model.Wallet
@@ -33,39 +34,90 @@ fun WalletScreen(
     wallet: Wallet,
     modifier: Modifier = Modifier
 ) {
-    var showRefillDialog by remember { mutableStateOf(false) }
+    var showCustomBalanceDialog by remember { mutableStateOf(false) }
+    var customBalanceInput by remember { mutableStateOf(wallet.balance.toString()) }
 
-    if (showRefillDialog) {
+    if (showCustomBalanceDialog) {
+        val quickAmounts = listOf(100_000L, 500_000L, 1_000_000L, 10_000_000L, 50_000_000L)
+
         AlertDialog(
-            onDismissRequest = { showRefillDialog = false },
+            onDismissRequest = { showCustomBalanceDialog = false },
             title = {
                 Text(
-                    text = "شارژ رایگان اعتبار مجازی",
+                    text = "تنظیم موجودی دلخواه کیف پول مجازی",
                     style = MaterialTheme.typography.titleLarge,
                     color = TextWhite,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Text(
-                    text = "موجودی کیف پول مجازی شما به ۱۰۰,۰۰۰ اعتبار بازنشانی خواهد شد. این اعتبارات کاملاً رایگان و مجازی بوده و ارزش پولی ندارند.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextGrayLight
-                )
+                Column {
+                    Text(
+                        text = "می‌توانید هر مبلغ دلخواهی از اعتبارات شبیه‌ساز را برای خود تنظیم کنید:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextGrayLight
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = customBalanceInput,
+                        onValueChange = { input ->
+                            if (input.all { it.isDigit() }) {
+                                customBalanceInput = input
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text("مبلغ موجودی (اعتبار)") },
+                        trailingIcon = { Text("اعتبار", color = TextGrayMuted, modifier = Modifier.padding(end = 12.dp)) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GreenAccent,
+                            unfocusedBorderColor = NavyBorder,
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("انتخاب سریع:", style = MaterialTheme.typography.labelSmall, color = TextGrayMuted)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        quickAmounts.take(4).forEach { amount ->
+                            FilterChip(
+                                selected = customBalanceInput == amount.toString(),
+                                onClick = { customBalanceInput = amount.toString() },
+                                label = { Text("%,d".format(amount), fontSize = 9.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = GreenAccent,
+                                    selectedLabelColor = NavyDarkest,
+                                    containerColor = NavyCardElevated,
+                                    labelColor = TextWhite
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.refillCredits()
-                        showRefillDialog = false
+                        val amount = customBalanceInput.toLongOrNull() ?: 100_000L
+                        viewModel.setCustomWalletBalance(amount)
+                        showCustomBalanceDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = GreenAccent, contentColor = NavyDarkest)
                 ) {
-                    Text("شارژ مجدد اعتبار", fontWeight = FontWeight.Bold)
+                    Text("ذخیره موجودی", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRefillDialog = false }) {
+                TextButton(onClick = { showCustomBalanceDialog = false }) {
                     Text("انصراف", color = TextGrayLight)
                 }
             },
@@ -112,7 +164,7 @@ fun WalletScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "موجودی اعتبار مجازی PlayZone",
+                        text = "موجودی کیف پول شبیه‌ساز PlayZone",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextGrayLight
                     )
@@ -136,20 +188,39 @@ fun WalletScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    Button(
-                        onClick = { showRefillDialog = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("btn_refill_credits"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GreenAccent,
-                            contentColor = NavyDarkest
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "شارژ رایگان ۱۰۰,۰۰۰ اعتبار هدیه", fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = {
+                                customBalanceInput = wallet.balance.toString()
+                                showCustomBalanceDialog = true
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_custom_balance"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GreenAccent,
+                                contentColor = NavyDarkest
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "تنظیم موجودی دلخواه", fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.refillCredits() },
+                            modifier = Modifier.weight(0.8f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite)
+                        ) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = CyanAccent)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "شارژ ۱۰۰K", fontSize = 12.sp)
+                        }
                     }
                 }
             }
@@ -158,7 +229,7 @@ fun WalletScreen(
         // Summary Statistics Grid
         item {
             Text(
-                text = "خلاصه عملکرد اعتبارات شما",
+                text = "خلاصه گردش اعتبارات شبیه‌ساز",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextWhite,
                 fontWeight = FontWeight.Bold
@@ -170,13 +241,13 @@ fun WalletScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatCard(
-                    title = "کل اعتبارات ثبت‌شده",
+                    title = "کل اعتبارات شرط‌بندی‌شده",
                     value = "%,d".format(wallet.totalStaked),
                     subtitle = "اعتبار",
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
-                    title = "کل اعتبارات دریافت‌شده",
+                    title = "کل بردهای دریافت‌شده",
                     value = "%,d".format(wallet.totalWon),
                     subtitle = "اعتبار",
                     modifier = Modifier.weight(1f)
@@ -190,7 +261,7 @@ fun WalletScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatCard(
-                    title = "سود / زیان فرضی",
+                    title = "سود / زیان شبیه‌ساز",
                     value = "${if (wallet.netProfit >= 0) "+" else ""}${"%,d".format(wallet.netProfit)}",
                     subtitle = "اعتبار",
                     valueColor = if (wallet.netProfit >= 0) GreenAccent else LiveRed,
@@ -199,14 +270,14 @@ fun WalletScreen(
                 StatCard(
                     title = "نرخ موفقیت پیش‌بینی‌ها",
                     value = "${"%.1f".format(wallet.winRate)}%",
-                    subtitle = "${wallet.wonCount} برد از ${wallet.predictionsCount}",
+                    subtitle = "${wallet.wonCount} برد از ${wallet.predictionsCount} بازی",
                     valueColor = GoldAccent,
                     modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        // Strict Virtual Currency Notice
+        // Virtual Disclaimer
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -218,15 +289,10 @@ fun WalletScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = CyanAccent,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        Icon(Icons.Default.Security, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "ضوابط اعتبارات مجازی PlayZone",
+                            text = "ضوابط اعتبارات در شبیه‌ساز PlayZone",
                             style = MaterialTheme.typography.titleMedium,
                             color = CyanAccent,
                             fontWeight = FontWeight.Bold
@@ -234,10 +300,9 @@ fun WalletScreen(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "• کلیه اعتبارات کیف پول مجازی کاملاً شبیه‌سازی‌شده و فاقد ارزش مادی هستند.\n" +
-                               "• امکان واریز پول واقعی، خرید اعتبار، درگاه پرداخت یا رمزارز در این برنامه وجود ندارد.\n" +
-                               "• اعتبارات مجازی به هیچ عنوان قابل برداشت، تبدیل به وجه نقد یا انتقال به سایرین نمی‌باشند.\n" +
-                               "• این سیستم صرفاً به منظور شبیه‌سازی آموزشی الگوهای احتمالی فوتبال طراحی شده است.",
+                        text = "• موجودی کیف پول صرفاً یک عدد فرضی برای شبیه‌سازی تجربه پیش‌بینی بدون خطر مالی است.\n" +
+                               "• کاربر می‌تواند در هر لحظه موجودی خود را آزادانه کم یا زیاد کند.\n" +
+                               "• هیچ وجه یا ارزی دریافت یا پرداخت نمی‌شود و سیستم هیچ‌گونه درگاه مالی ندارد.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextGrayLight,
                         lineHeight = 22.sp

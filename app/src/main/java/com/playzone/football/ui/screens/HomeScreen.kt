@@ -1,7 +1,6 @@
 package com.playzone.football.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,12 +11,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SportsSoccer
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,15 +24,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.playzone.football.data.model.Match
 import com.playzone.football.data.model.MatchStatus
 import com.playzone.football.data.model.PredictionOutcomeType
 import com.playzone.football.data.model.Wallet
+import com.playzone.football.ui.components.BetOddButton
 import com.playzone.football.ui.components.LeagueFilterBar
 import com.playzone.football.ui.components.LiveStatusBadge
 import com.playzone.football.ui.components.MatchCard
 import com.playzone.football.ui.components.PermanentNoticeBanner
+import com.playzone.football.ui.components.SearchBarField
 import com.playzone.football.ui.theme.*
 import com.playzone.football.viewmodel.MainViewModel
 
@@ -55,6 +54,7 @@ fun HomeScreen(
 ) {
     val liveMatches = matches.filter { it.status == MatchStatus.LIVE }
     val upcomingMatches = matches.filter { it.status == MatchStatus.UPCOMING }
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = modifier
@@ -63,12 +63,21 @@ fun HomeScreen(
             .testTag("home_screen"),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        // Permanent Educational Notice Banner
+        // Permanent Notice Banner
         item {
-            PermanentNoticeBanner(modifier = Modifier.padding(16.dp))
+            PermanentNoticeBanner(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp))
         }
 
-        // Virtual Balance & Quick Refill Card
+        // Search Bar for matches, teams, and leagues
+        item {
+            SearchBarField(
+                query = searchQuery,
+                onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        // Virtual Balance & Custom Setting Shortcut Card
         item {
             Card(
                 modifier = Modifier
@@ -90,7 +99,7 @@ fun HomeScreen(
                 ) {
                     Column {
                         Text(
-                            text = "موجودی مجازی شما",
+                            text = "موجودی کیف پول شبیه‌ساز",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextGrayLight
                         )
@@ -110,7 +119,7 @@ fun HomeScreen(
                             )
                         }
                         Text(
-                            text = "نرخ برد: ${"%.1f".format(wallet.winRate)}% (${wallet.wonCount} از ${wallet.predictionsCount})",
+                            text = "نرخ برد: ${"%.1f".format(wallet.winRate)}% (${wallet.wonCount} برد از ${wallet.predictionsCount} بازی)",
                             style = MaterialTheme.typography.labelSmall,
                             color = GoldAccent
                         )
@@ -131,7 +140,7 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "مدیریت",
+                                text = "تنظیم موجودی",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = TextWhite
                             )
@@ -141,10 +150,10 @@ fun HomeScreen(
             }
         }
 
-        // Live Matches Carousel
+        // Live Matches Carousel (1xBet Style)
         if (liveMatches.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -161,7 +170,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "مسابقات در حال برگزاری (${liveMatches.size})",
+                            text = "مسابقات زنده در حال برگزاری (${liveMatches.size})",
                             style = MaterialTheme.typography.headlineMedium,
                             color = TextWhite,
                             fontWeight = FontWeight.Bold
@@ -180,7 +189,7 @@ fun HomeScreen(
                     items(liveMatches) { liveMatch ->
                         Card(
                             modifier = Modifier
-                                .width(280.dp)
+                                .width(310.dp)
                                 .clickable { onNavigateToMatch(liveMatch.id) },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = NavyCard),
@@ -188,7 +197,7 @@ fun HomeScreen(
                                 brush = Brush.verticalGradient(listOf(LiveRed.copy(alpha = 0.5f), NavyBorder))
                             )
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -209,18 +218,19 @@ fun HomeScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         AsyncImage(
                                             model = liveMatch.homeTeamLogo,
                                             contentDescription = null,
-                                            modifier = Modifier.size(32.dp)
+                                            modifier = Modifier.size(30.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = liveMatch.homeTeamPersian,
-                                            style = MaterialTheme.typography.labelMedium,
+                                            style = MaterialTheme.typography.titleSmall,
                                             color = TextWhite,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -233,53 +243,50 @@ fun HomeScreen(
                                         fontWeight = FontWeight.ExtraBold,
                                         modifier = Modifier.padding(horizontal = 8.dp)
                                     )
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.weight(1f)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f),
+                                        horizontalArrangement = Arrangement.End
                                     ) {
-                                        AsyncImage(
-                                            model = liveMatch.awayTeamLogo,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(32.dp)
-                                        )
                                         Text(
                                             text = liveMatch.awayTeamPersian,
-                                            style = MaterialTheme.typography.labelMedium,
+                                            style = MaterialTheme.typography.titleSmall,
                                             color = TextWhite,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        AsyncImage(
+                                            model = liveMatch.awayTeamLogo,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(30.dp)
+                                        )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                // 1 - X - 2 Odds Row
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Button(
+                                    BetOddButton(
+                                        market = "۱",
+                                        odd = "${liveMatch.homeProbMultiplier}",
                                         onClick = { onPredictClick(liveMatch, PredictionOutcomeType.HOME_WIN) },
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.buttonColors(containerColor = NavyCardElevated),
-                                        contentPadding = PaddingValues(2.dp)
-                                    ) {
-                                        Text("۱ (${liveMatch.homeProbMultiplier})", style = MaterialTheme.typography.labelSmall, color = TextWhite)
-                                    }
-                                    Button(
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    BetOddButton(
+                                        market = "X",
+                                        odd = "${liveMatch.drawProbMultiplier}",
                                         onClick = { onPredictClick(liveMatch, PredictionOutcomeType.DRAW) },
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.buttonColors(containerColor = NavyCardElevated),
-                                        contentPadding = PaddingValues(2.dp)
-                                    ) {
-                                        Text("X (${liveMatch.drawProbMultiplier})", style = MaterialTheme.typography.labelSmall, color = TextWhite)
-                                    }
-                                    Button(
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    BetOddButton(
+                                        market = "۲",
+                                        odd = "${liveMatch.awayProbMultiplier}",
                                         onClick = { onPredictClick(liveMatch, PredictionOutcomeType.AWAY_WIN) },
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.buttonColors(containerColor = NavyCardElevated),
-                                        contentPadding = PaddingValues(2.dp)
-                                    ) {
-                                        Text("۲ (${liveMatch.awayProbMultiplier})", style = MaterialTheme.typography.labelSmall, color = TextWhite)
-                                    }
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                             }
                         }
@@ -290,7 +297,7 @@ fun HomeScreen(
 
         // Leagues Filter Header
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -299,13 +306,13 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "لیگ‌های تحت پوشش",
+                    text = "لیگ‌های معتبر جهان و ایران",
                     style = MaterialTheme.typography.headlineMedium,
                     color = TextWhite,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = onNavigateToLeagues) {
-                    Text("جدول لیگ‌ها", color = CyanAccent, style = MaterialTheme.typography.labelMedium)
+                    Text("جدول رده‌بندی", color = CyanAccent, style = MaterialTheme.typography.labelMedium)
                     Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
                 }
             }
@@ -316,7 +323,7 @@ fun HomeScreen(
             )
         }
 
-        // Upcoming Matches List
+        // Upcoming Matches List (1xBet Pro Style)
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -327,19 +334,19 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "مسابقات برجسته پیش‌رو",
+                    text = "مسابقات داغ امروز و فردا",
                     style = MaterialTheme.typography.headlineMedium,
                     color = TextWhite,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = { onNavigateToMatchesList(MatchStatus.UPCOMING) }) {
-                    Text("همه مسابقات", color = CyanAccent, style = MaterialTheme.typography.labelMedium)
+                    Text("لیست کامل", color = CyanAccent, style = MaterialTheme.typography.labelMedium)
                     Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
                 }
             }
         }
 
-        items(upcomingMatches.take(4)) { match ->
+        items(upcomingMatches.take(6)) { match ->
             MatchCard(
                 match = match,
                 onMatchClick = { onNavigateToMatch(match.id) },

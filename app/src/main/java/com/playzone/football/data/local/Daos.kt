@@ -56,6 +56,9 @@ interface WalletDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveWallet(wallet: WalletEntity)
 
+    @Query("UPDATE wallet SET balance = :newBalance WHERE id = 1")
+    suspend fun updateBalance(newBalance: Long)
+
     @Query("DELETE FROM wallet")
     suspend fun clearWallet()
 }
@@ -70,4 +73,16 @@ interface ResponsibleSettingsDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveSettings(settings: ResponsibleSettingsEntity)
+}
+
+@Dao
+interface UserSettingsDao {
+    @Query("SELECT * FROM user_settings WHERE id = 1 LIMIT 1")
+    fun getSettingsFlow(): Flow<UserSettingsEntity?>
+
+    @Query("SELECT * FROM user_settings WHERE id = 1 LIMIT 1")
+    suspend fun getSettings(): UserSettingsEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveSettings(settings: UserSettingsEntity)
 }

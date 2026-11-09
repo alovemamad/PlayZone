@@ -24,8 +24,8 @@ class PlayZoneUnitTest {
 
   @Test
   fun `verify odds multiplier calculation`() {
-    val match = SampleFootballData.sampleMatches.first()
-    val expectedMultiplier = (100.0 / match.simHomeProb * 100).toInt() / 100.0
+    val match = SampleFootballData.createInitialMatches().first()
+    val expectedMultiplier = (100.0 / match.simHomeProb.coerceAtLeast(5) * 100).toInt() / 100.0
     assertEquals(expectedMultiplier, match.homeProbMultiplier, 0.01)
     assertTrue("Multiplier should be positive", match.homeProbMultiplier > 1.0)
   }

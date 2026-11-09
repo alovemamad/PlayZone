@@ -75,6 +75,8 @@ fun MainScreen(viewModel: MainViewModel) {
         }
     }
 
+    val isLiveApi by viewModel.isLiveApiActive.collectAsStateWithLifecycle()
+
     val bottomNavItems = listOf(
         Screen.Home,
         Screen.Matches,
@@ -90,6 +92,7 @@ fun MainScreen(viewModel: MainViewModel) {
             if (showBottomBar) {
                 PlayZoneTopBar(
                     virtualBalance = wallet.balance,
+                    isLiveApi = isLiveApi,
                     onWalletClick = { navController.navigate(Screen.Wallet.route) },
                     onResponsibleClick = { navController.navigate(Screen.Responsible.route) }
                 )
