@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.playzone.football.data.model.League
 import com.playzone.football.data.model.Team
@@ -32,6 +33,23 @@ fun LeaguesScreen(
     onTeamClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val realMode by viewModel.isRealMode.collectAsStateWithLifecycle()
+    if (realMode) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(NavyBackground),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "جدول رده‌بندی در حالت داده‌های واقعی هنوز اضافه نشده است.",
+                color = TextGrayLight,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(24.dp)
+            )
+        }
+        return
+    }
     var selectedLeagueId by remember { mutableStateOf(viewModel.leagues.first().id) }
 
     val currentLeague = viewModel.leagues.find { it.id == selectedLeagueId } ?: viewModel.leagues.first()

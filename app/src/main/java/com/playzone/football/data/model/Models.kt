@@ -81,25 +81,61 @@ data class Match(
     val simOverProb: Int = 55,
     val simUnderProb: Int = 45,
     val stats: MatchStats = MatchStats(),
-    val events: List<MatchEvent> = emptyList()
+    val events: List<MatchEvent> = emptyList(),
+    // Real bookmaker odds (0.0 = not available). Only used for API matches (id starts with "api_").
+    val statsLoaded: Boolean = true,
+    val statusShort: String = "",
+    val oddHome: Double = 0.0,
+    val oddDraw: Double = 0.0,
+    val oddAway: Double = 0.0,
+    val oddDc1x: Double = 0.0,
+    val oddDc12: Double = 0.0,
+    val oddDcx2: Double = 0.0,
+    val oddOver25: Double = 0.0,
+    val oddUnder25: Double = 0.0,
+    val oddOver15: Double = 0.0,
+    val oddUnder15: Double = 0.0,
+    val oddBttsYes: Double = 0.0,
+    val oddBttsNo: Double = 0.0
 ) {
+    val isReal: Boolean get() = id.startsWith("api_")
+
     // Professional odds multipliers (Format: 1.85, 3.40, etc.)
-    val homeProbMultiplier: Double get() = (100.0 / simHomeProb.coerceAtLeast(5) * 100).toInt() / 100.0
-    val drawProbMultiplier: Double get() = (100.0 / simDrawProb.coerceAtLeast(5) * 100).toInt() / 100.0
-    val awayProbMultiplier: Double get() = (100.0 / simAwayProb.coerceAtLeast(5) * 100).toInt() / 100.0
+    val homeProbMultiplier: Double get() = if (isReal) oddHome else (100.0 / simHomeProb.coerceAtLeast(5) * 100).toInt() / 100.0
+    val drawProbMultiplier: Double get() = if (isReal) oddDraw else (100.0 / simDrawProb.coerceAtLeast(5) * 100).toInt() / 100.0
+    val awayProbMultiplier: Double get() = if (isReal) oddAway else (100.0 / simAwayProb.coerceAtLeast(5) * 100).toInt() / 100.0
 
     // Double chance
-    val dc1XMultiplier: Double get() = ((100.0 / (simHomeProb + simDrawProb).coerceAtLeast(10)) * 100).toInt() / 100.0
-    val dc12Multiplier: Double get() = ((100.0 / (simHomeProb + simAwayProb).coerceAtLeast(10)) * 100).toInt() / 100.0
-    val dcX2Multiplier: Double get() = ((100.0 / (simDrawProb + simAwayProb).coerceAtLeast(10)) * 100).toInt() / 100.0
+    val dc1XMultiplier: Double get() = if (isReal) oddDc1x else ((100.0 / (simHomeProb + simDrawProb).coerceAtLeast(10)) * 100).toInt() / 100.0
+    val dc12Multiplier: Double get() = if (isReal) oddDc12 else ((100.0 / (simHomeProb + simAwayProb).coerceAtLeast(10)) * 100).toInt() / 100.0
+    val dcX2Multiplier: Double get() = if (isReal) oddDcx2 else ((100.0 / (simDrawProb + simAwayProb).coerceAtLeast(10)) * 100).toInt() / 100.0
 
     // Totals
-    val over25Multiplier: Double get() = (100.0 / simOverProb.coerceAtLeast(10) * 100).toInt() / 100.0
-    val under25Multiplier: Double get() = (100.0 / simUnderProb.coerceAtLeast(10) * 100).toInt() / 100.0
+    val over25Multiplier: Double get() = if (isReal) oddOver25 else (100.0 / simOverProb.coerceAtLeast(10) * 100).toInt() / 100.0
+    val under25Multiplier: Double get() = if (isReal) oddUnder25 else (100.0 / simUnderProb.coerceAtLeast(10) * 100).toInt() / 100.0
 
     // Both Teams to Score (GG / NG)
-    val bttsYesMultiplier: Double get() = 1.82
-    val bttsNoMultiplier: Double get() = 1.98
+    val bttsYesMultiplier: Double get() = if (isReal) oddBttsYes else 1.82
+    val bttsNoMultiplier: Double get() = if (isReal) oddBttsNo else 1.98
+
+    val over15Multiplier: Double get() = if (isReal) oddOver15 else 1.35
+    val under15Multiplier: Double get() = if (isReal) oddUnder15 else 3.10
+
+    /** Odds for an outcome; 0.0 means the market is not available. */
+    fun oddFor(type: PredictionOutcomeType): Double = when (type) {
+        PredictionOutcomeType.HOME_WIN -> homeProbMultiplier
+        PredictionOutcomeType.DRAW -> drawProbMultiplier
+        PredictionOutcomeType.AWAY_WIN -> awayProbMultiplier
+        PredictionOutcomeType.DOUBLE_CHANCE_1X -> dc1XMultiplier
+        PredictionOutcomeType.DOUBLE_CHANCE_12 -> dc12Multiplier
+        PredictionOutcomeType.DOUBLE_CHANCE_X2 -> dcX2Multiplier
+        PredictionOutcomeType.OVER_2_5 -> over25Multiplier
+        PredictionOutcomeType.UNDER_2_5 -> under25Multiplier
+        PredictionOutcomeType.OVER_1_5 -> over15Multiplier
+        PredictionOutcomeType.UNDER_1_5 -> under15Multiplier
+        PredictionOutcomeType.BOTH_TEAMS_SCORE_YES -> bttsYesMultiplier
+        PredictionOutcomeType.BOTH_TEAMS_SCORE_NO -> bttsNoMultiplier
+    }
 }
 
 data class Team(

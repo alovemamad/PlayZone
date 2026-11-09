@@ -248,8 +248,8 @@ fun MatchDetailScreen(
                 }
             }
 
-            // 1xBet Live Statistics Match Center
-            item {
+            // Live statistics (real data only; loaded from the API when the page opens)
+            if (!match.isReal || match.statsLoaded) item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),

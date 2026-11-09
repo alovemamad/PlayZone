@@ -85,7 +85,7 @@ fun PermanentNoticeBanner(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "کلیه اعتبارات و ضرایب کاملاً مجازی و شبیه‌سازی‌شده هستند و فاقد هرگونه ارزش مادی یا امکان برداشت یا واریز می‌باشند.",
+                    text = "بازی‌ها و ضرایب از منبع واقعی (API-Football) گرفته می‌شوند؛ ولی اعتبارات کاملاً مجازی‌اند و ارزش مادی یا امکان برداشت و واریز ندارند.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextGrayLight,
                     lineHeight = 16.sp
@@ -600,8 +600,12 @@ fun BetOddButton(
     modifier: Modifier = Modifier,
     color: Color = GreenAccent
 ) {
+    val oddValue = odd.toDoubleOrNull()
+    val available = oddValue == null || oddValue > 1.0
+    val oddText = if (available) odd else "—"
     Surface(
-        onClick = onClick,
+        onClick = { if (available) onClick() },
+        enabled = available,
         shape = RoundedCornerShape(8.dp),
         color = NavyCardElevated,
         border = CardDefaults.outlinedCardBorder().copy(
@@ -624,9 +628,9 @@ fun BetOddButton(
                 maxLines = 1
             )
             Text(
-                text = odd,
+                text = oddText,
                 style = MaterialTheme.typography.labelLarge,
-                color = color,
+                color = if (available) color else TextGrayMuted,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )

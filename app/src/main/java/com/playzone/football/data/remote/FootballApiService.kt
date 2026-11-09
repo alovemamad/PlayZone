@@ -19,8 +19,39 @@ interface FootballApiService {
     @GET("v3/fixtures")
     suspend fun getFixturesByDate(
         @Header("x-apisports-key") apiKey: String,
-        @Query("date") date: String
+        @Query("date") date: String,
+        @Query("timezone") timezone: String? = null
     ): ApiFootballResponse<ApiFixtureItem>
+
+    // ids = "123-456-789" (max 20)
+    @GET("v3/fixtures")
+    suspend fun getFixturesByIds(
+        @Header("x-apisports-key") apiKey: String,
+        @Query("ids") ids: String,
+        @Query("timezone") timezone: String? = null
+    ): ApiFootballResponse<ApiFixtureItem>
+
+    // One fixture including events and statistics
+    @GET("v3/fixtures")
+    suspend fun getFixtureDetail(
+        @Header("x-apisports-key") apiKey: String,
+        @Query("id") id: Long,
+        @Query("timezone") timezone: String? = null
+    ): ApiFootballResponse<ApiFixtureItem>
+
+    @GET("v3/odds")
+    suspend fun getOddsByDate(
+        @Header("x-apisports-key") apiKey: String,
+        @Query("date") date: String,
+        @Query("bookmaker") bookmaker: Int,
+        @Query("page") page: Int,
+        @Query("timezone") timezone: String? = null
+    ): ApiFootballResponse<ApiOddsItem>
+
+    @GET("v3/odds/live")
+    suspend fun getLiveOdds(
+        @Header("x-apisports-key") apiKey: String
+    ): ApiFootballResponse<ApiLiveOddsItem>
 
     @GET("v3/status")
     suspend fun getApiStatus(

@@ -36,6 +36,7 @@ class MainViewModel(
     val leagues: List<League> = footballRepository.leagues
     val teams: List<Team> = footballRepository.teams
 
+    val isRealMode: StateFlow<Boolean> = footballRepository.isRealMode
     val isLiveApiActive: StateFlow<Boolean> = footballRepository.isLiveApiActive
     val apiStatusMessage: StateFlow<String> = footballRepository.apiStatusMessage
 
@@ -73,6 +74,28 @@ class MainViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** League chips: sample leagues in demo mode, leagues of real matches otherwise (busiest first). */
+    val activeLeagues: StateFlow<List<League>> = combine(rawMatches, isRealMode) { matches, real ->
+        if (!real) {
+            leagues
+        } else {
+            matches.groupBy { it.leagueId }
+                .entries
+                .sortedByDescending { it.value.size }
+                .take(25)
+                .map { (id, list) ->
+                    League(
+                        id = id,
+                        name = list.first().leagueName,
+                        persianName = list.first().leaguePersianName,
+                        country = "",
+                        flagEmoji = "⚽",
+                        logoUrl = ""
+                    )
+                }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), leagues)
+
     val wallet: StateFlow<Wallet> = predictionRepository.getWalletFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Wallet())
 
@@ -86,6 +109,17 @@ class MainViewModel(
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
     // Prediction Modal State
+    init {
+        // Auto-settlement notices from the sync engine
+        viewModelScope.launch {
+            footballRepository.syncMessages.collect { _userMessage.emit(it) }
+        }
+    }
+
+    fun refreshNow() = footballRepository.refreshNow()
+
+    fun loadMatchDetail(matchId: String) = footballRepository.loadMatchDetail(matchId)
+
     private val _activePredictionMatch = MutableStateFlow<Match?>(null)
     val activePredictionMatch: StateFlow<Match?> = _activePredictionMatch.asStateFlow()
 

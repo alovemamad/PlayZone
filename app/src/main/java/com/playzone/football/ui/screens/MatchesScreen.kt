@@ -89,7 +89,7 @@ fun MatchesScreen(
 
         // League Filters
         LeagueFilterBar(
-            leagues = viewModel.leagues,
+            leagues = viewModel.activeLeagues.collectAsStateWithLifecycle().value,
             selectedLeagueId = selectedLeagueId,
             onLeagueSelect = { viewModel.selectLeagueFilter(it) }
         )
@@ -121,6 +121,20 @@ fun MatchesScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = TextGrayMuted
                     )
+                    val realMode by viewModel.isRealMode.collectAsStateWithLifecycle()
+                    val apiStatus by viewModel.apiStatusMessage.collectAsStateWithLifecycle()
+                    if (realMode) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = apiStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GoldAccent,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        TextButton(onClick = { viewModel.refreshNow() }) {
+                            Text("به‌روزرسانی مسابقات", color = CyanAccent)
+                        }
+                    }
                 }
             }
         } else {

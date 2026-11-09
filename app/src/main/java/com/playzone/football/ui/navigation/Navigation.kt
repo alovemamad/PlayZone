@@ -232,6 +232,9 @@ fun MainScreen(viewModel: MainViewModel) {
             ) { backStackEntry ->
                 val matchId = backStackEntry.arguments?.getString("matchId")
                 val match = rawMatches.find { it.id == matchId }
+                LaunchedEffect(matchId) {
+                    matchId?.let { viewModel.loadMatchDetail(it) }
+                }
                 MatchDetailScreen(
                     match = match,
                     onBackClick = { navController.popBackStack() },

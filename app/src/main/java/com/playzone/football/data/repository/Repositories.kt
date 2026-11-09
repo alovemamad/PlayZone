@@ -1,5 +1,6 @@
 package com.playzone.football.data.repository
 
+import com.playzone.football.BuildConfig
 import com.playzone.football.data.local.AppDatabase
 import com.playzone.football.data.local.MatchEntity
 import com.playzone.football.data.local.PredictionEntity
@@ -23,6 +24,11 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -46,30 +52,108 @@ class FootballRepository(
     private val eventAdapter = moshi.adapter<List<MatchEvent>>(eventListType)
     private val statsAdapter = moshi.adapter(MatchStats::class.java)
 
+    private val engine = ApiSyncEngine(database)
+
     private val _isLiveApiActive = MutableStateFlow(false)
     val isLiveApiActive: StateFlow<Boolean> = _isLiveApiActive.asStateFlow()
 
     private val _apiStatusMessage = MutableStateFlow("شبیه‌ساز مسابقات فعال است")
     val apiStatusMessage: StateFlow<String> = _apiStatusMessage.asStateFlow()
 
+    /** True when real API data is used (no demo matches at all). */
+    private val _isRealMode = MutableStateFlow(false)
+    val isRealMode: StateFlow<Boolean> = _isRealMode.asStateFlow()
+
+    private val _syncMessages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val syncMessages: SharedFlow<String> = _syncMessages.asSharedFlow()
+
+    @Volatile private var syncJob: Job? = null
+
     val leagues: List<League> = SampleFootballData.sampleLeagues
     val teams: List<Team> = SampleFootballData.sampleTeams
 
     init {
-        scope.launch {
+        scope.launch { startup() }
+    }
+
+    private fun isUsableKey(key: String): Boolean =
+        key.isNotBlank() && !key.startsWith("demo") && key != "MY_API_FOOTBALL_KEY"
+
+    /** Key typed in Settings wins, otherwise the one baked in from .env. */
+    private suspend fun effectiveKey(): String = withContext(Dispatchers.IO) {
+        val saved = database.userSettingsDao().getSettings()?.apiFootballKey?.trim().orEmpty()
+        if (isUsableKey(saved)) saved else BuildConfig.API_FOOTBALL_KEY.trim()
+    }
+
+    private suspend fun startup() {
+        val key = effectiveKey()
+        if (!isUsableKey(key)) {
+            // No key at all: offline demo mode (sample data + local ticker)
             initSampleDataIfNeeded()
-            loadSavedSettings()
             startLiveTickerSimulator()
+            return
+        }
+        withContext(Dispatchers.IO) { database.matchDao().deleteDemoMatches() }
+        _isRealMode.value = true
+        startSync(key)
+    }
+
+    private fun startSync(key: String) {
+        syncJob?.cancel()
+        _isLiveApiActive.value = true
+        _apiStatusMessage.value = "در حال اتصال به API-Football…"
+        syncJob = scope.launch(Dispatchers.IO) {
+            syncCycle(key, firstRun = true)
+            while (isActive) {
+                delay(engine.liveIntervalMs)
+                syncCycle(key, firstRun = false)
+            }
         }
     }
 
-    private suspend fun loadSavedSettings() = withContext(Dispatchers.IO) {
-        val settings = database.userSettingsDao().getSettings()
-        if (settings != null && settings.useLiveApi && settings.apiFootballKey.isNotBlank()) {
-            _isLiveApiActive.value = true
-            _apiStatusMessage.value = "متصل به API-Football (سهمیه باقیمانده: ${settings.apiRemainingCalls})"
-            // Try fetching live fixtures
-            fetchLiveFromApiFootball(settings.apiFootballKey)
+    /** One manual refresh (pull-to-refresh / button). */
+    fun refreshNow() {
+        scope.launch(Dispatchers.IO) {
+            val key = effectiveKey()
+            if (isUsableKey(key)) syncCycle(key, firstRun = true)
+        }
+    }
+
+    private suspend fun syncCycle(key: String, firstRun: Boolean) {
+        val budgetError = engine.refreshBudget(key)
+        if (budgetError != null) {
+            _apiStatusMessage.value = budgetError
+            return
+        }
+        val errors = mutableListOf<String>()
+        engine.syncFixtures(key, force = firstRun)?.let { errors.add(it) }
+        engine.syncOdds(key, force = false)?.let { errors.add(it) }
+        var settled = 0
+        engine.syncLive(key) { settled += it }?.let { errors.add(it) }
+        if (settled > 0) {
+            _syncMessages.tryEmit("$settled پیش‌بینی بر اساس نتیجه واقعی بازی تسویه شد")
+        }
+        val remaining = engine.remainingCalls.coerceAtLeast(0)
+        _apiStatusMessage.value = if (errors.isEmpty()) {
+            "متصل به API-Football (سهمیه باقی‌مانده امروز: $remaining)"
+        } else {
+            errors.distinct().joinToString(" | ")
+        }
+        try {
+            val current = database.userSettingsDao().getSettings() ?: UserSettingsEntity()
+            database.userSettingsDao().saveSettings(
+                current.copy(apiRemainingCalls = remaining, lastSyncTime = "همین الان")
+            )
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Loads events and statistics when a match page opens (1 API call). */
+    fun loadMatchDetail(matchId: String) {
+        if (!matchId.startsWith("api_")) return
+        scope.launch(Dispatchers.IO) {
+            val key = effectiveKey()
+            if (isUsableKey(key)) engine.loadDetail(key, matchId)
         }
     }
 
@@ -84,17 +168,23 @@ class FootballRepository(
 
     fun getAllMatchesFlow(): Flow<List<Match>> {
         return database.matchDao().getAllMatches().map { entities ->
-            if (entities.isEmpty()) {
-                SampleFootballData.createInitialMatches()
-            } else {
-                entities.map { entityToMatch(it) }
+            val api = entities.filter { it.id.startsWith("api_") }
+            when {
+                api.isNotEmpty() || _isRealMode.value ->
+                    api.filter { e ->
+                        e.statusShort !in ApiSyncEngine.CANCEL_CODES &&
+                            (e.status != MatchStatus.UPCOMING || e.oddHome > 0.0)
+                    }.map { entityToMatch(it) }
+                entities.isEmpty() -> SampleFootballData.createInitialMatches()
+                else -> entities.map { entityToMatch(it) }
             }
         }
     }
 
     suspend fun getMatchById(id: String): Match? = withContext(Dispatchers.IO) {
         val entity = database.matchDao().getMatchById(id)
-        entity?.let { entityToMatch(it) } ?: SampleFootballData.createInitialMatches().find { it.id == id }
+        entity?.let { entityToMatch(it) }
+            ?: if (_isRealMode.value) null else SampleFootballData.createInitialMatches().find { it.id == id }
     }
 
     fun getTeamById(id: String): Team? {
@@ -145,7 +235,9 @@ class FootballRepository(
             _apiStatusMessage.value = "متصل به سرور API-Football ($remainingCalls درخواست باقی‌مانده)"
 
             if (useLive) {
-                fetchLiveFromApiFootball(apiKey.trim())
+                withContext(Dispatchers.IO) { database.matchDao().deleteDemoMatches() }
+                _isRealMode.value = true
+                startSync(apiKey.trim())
             }
 
             Result.success("کلید API با موفقیت متصل و ذخیره شد ($remainingCalls درخواست باقی‌مانده).")
@@ -160,48 +252,6 @@ class FootballRepository(
 
     fun getUserSettingsFlow(): Flow<UserSettingsEntity> {
         return database.userSettingsDao().getSettingsFlow().map { it ?: UserSettingsEntity() }
-    }
-
-    suspend fun fetchLiveFromApiFootball(apiKey: String) = withContext(Dispatchers.IO) {
-        try {
-            val response = RetrofitClient.apiService.getLiveFixtures(apiKey)
-            if (response.response.isNotEmpty()) {
-                val liveEntities = response.response.map { item ->
-                    MatchEntity(
-                        id = "api_${item.fixture.id}",
-                        leagueId = "api_league_${item.league.id}",
-                        leagueName = item.league.name,
-                        leaguePersianName = item.league.name,
-                        homeTeamId = "api_team_${item.teams.home.id}",
-                        homeTeamName = item.teams.home.name,
-                        homeTeamPersian = item.teams.home.name,
-                        homeTeamLogo = item.teams.home.logo ?: "https://media.api-sports.io/football/teams/50.png",
-                        awayTeamId = "api_team_${item.teams.away.id}",
-                        awayTeamName = item.teams.away.name,
-                        awayTeamPersian = item.teams.away.name,
-                        awayTeamLogo = item.teams.away.logo ?: "https://media.api-sports.io/football/teams/40.png",
-                        status = MatchStatus.LIVE,
-                        minute = item.fixture.status.elapsed ?: 45,
-                        homeScore = item.goals.home ?: 0,
-                        awayScore = item.goals.away ?: 0,
-                        matchTime = "زنده",
-                        matchDate = item.fixture.date.take(10),
-                        stadium = "استادیوم رسمی",
-                        referee = item.fixture.referee ?: "داور بین‌المللی",
-                        simHomeProb = 45,
-                        simDrawProb = 28,
-                        simAwayProb = 27,
-                        simOverProb = 55,
-                        simUnderProb = 45,
-                        eventsJson = "[]",
-                        statsJson = "{}"
-                    )
-                }
-                database.matchDao().insertMatches(liveEntities)
-            }
-        } catch (_: Exception) {
-            // Keep using local realistic match store if network or rate limit hits
-        }
     }
 
     // Ticker simulator that periodically advances live match minutes and generates events
@@ -266,7 +316,20 @@ class FootballRepository(
             simOverProb = m.simOverProb,
             simUnderProb = m.simUnderProb,
             eventsJson = eventsJson,
-            statsJson = statsJson
+            statsJson = statsJson,
+            statusShort = m.statusShort,
+            oddHome = m.oddHome,
+            oddDraw = m.oddDraw,
+            oddAway = m.oddAway,
+            oddDc1x = m.oddDc1x,
+            oddDc12 = m.oddDc12,
+            oddDcx2 = m.oddDcx2,
+            oddOver25 = m.oddOver25,
+            oddUnder25 = m.oddUnder25,
+            oddOver15 = m.oddOver15,
+            oddUnder15 = m.oddUnder15,
+            oddBttsYes = m.oddBttsYes,
+            oddBttsNo = m.oddBttsNo
         )
     }
 
@@ -308,7 +371,21 @@ class FootballRepository(
             simOverProb = e.simOverProb,
             simUnderProb = e.simUnderProb,
             stats = stats,
-            events = events
+            events = events,
+            statsLoaded = e.statsJson.contains("possessionHome"),
+            statusShort = e.statusShort,
+            oddHome = e.oddHome,
+            oddDraw = e.oddDraw,
+            oddAway = e.oddAway,
+            oddDc1x = e.oddDc1x,
+            oddDc12 = e.oddDc12,
+            oddDcx2 = e.oddDcx2,
+            oddOver25 = e.oddOver25,
+            oddUnder25 = e.oddUnder25,
+            oddOver15 = e.oddOver15,
+            oddUnder15 = e.oddUnder15,
+            oddBttsYes = e.oddBttsYes,
+            oddBttsNo = e.oddBttsNo
         )
     }
 }
@@ -378,25 +455,24 @@ class PredictionRepository(
         match: Match,
         outcomeType: PredictionOutcomeType,
         stakeCredits: Long
+    ): Result<Long> = WalletLock.mutex.withLock { placePredictionInternal(match, outcomeType, stakeCredits) }
+
+    private suspend fun placePredictionInternal(
+        match: Match,
+        outcomeType: PredictionOutcomeType,
+        stakeCredits: Long
     ): Result<Long> = withContext(Dispatchers.IO) {
+        if (match.status == MatchStatus.FINISHED) {
+            return@withContext Result.failure(Exception("این بازی به پایان رسیده است."))
+        }
         val wallet = database.walletDao().getWallet() ?: WalletEntity()
         if (wallet.balance < stakeCredits) {
             return@withContext Result.failure(Exception("موجودی اعتبار مجازی کافی نیست. لطفاً کیف پول خود را شارژ کنید."))
         }
 
-        val multiplier = when (outcomeType) {
-            PredictionOutcomeType.HOME_WIN -> match.homeProbMultiplier
-            PredictionOutcomeType.DRAW -> match.drawProbMultiplier
-            PredictionOutcomeType.AWAY_WIN -> match.awayProbMultiplier
-            PredictionOutcomeType.DOUBLE_CHANCE_1X -> match.dc1XMultiplier
-            PredictionOutcomeType.DOUBLE_CHANCE_12 -> match.dc12Multiplier
-            PredictionOutcomeType.DOUBLE_CHANCE_X2 -> match.dcX2Multiplier
-            PredictionOutcomeType.OVER_2_5 -> match.over25Multiplier
-            PredictionOutcomeType.UNDER_2_5 -> match.under25Multiplier
-            PredictionOutcomeType.OVER_1_5 -> 1.35
-            PredictionOutcomeType.UNDER_1_5 -> 3.10
-            PredictionOutcomeType.BOTH_TEAMS_SCORE_YES -> match.bttsYesMultiplier
-            PredictionOutcomeType.BOTH_TEAMS_SCORE_NO -> match.bttsNoMultiplier
+        val multiplier = match.oddFor(outcomeType)
+        if (multiplier <= 1.0) {
+            return@withContext Result.failure(Exception("ضریب این بازار در حال حاضر در دسترس نیست."))
         }
 
         val prob = when (outcomeType) {
@@ -456,6 +532,11 @@ class PredictionRepository(
     suspend fun resolvePrediction(
         predictionId: Long,
         didWin: Boolean
+    ) = WalletLock.mutex.withLock { resolvePredictionInternal(predictionId, didWin) }
+
+    private suspend fun resolvePredictionInternal(
+        predictionId: Long,
+        didWin: Boolean
     ) = withContext(Dispatchers.IO) {
         val pred = database.predictionDao().getPredictionById(predictionId) ?: return@withContext
         if (pred.status != PredictionStatus.PENDING) return@withContext
@@ -482,10 +563,12 @@ class PredictionRepository(
     }
 
     // Set custom balance chosen by the user
-    suspend fun setCustomBalance(amount: Long) = withContext(Dispatchers.IO) {
-        val existing = database.walletDao().getWallet() ?: WalletEntity()
-        val updated = existing.copy(balance = amount.coerceAtLeast(1_000L))
-        database.walletDao().saveWallet(updated)
+    suspend fun setCustomBalance(amount: Long) = WalletLock.mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val existing = database.walletDao().getWallet() ?: WalletEntity()
+            val updated = existing.copy(balance = amount.coerceAtLeast(1_000L))
+            database.walletDao().saveWallet(updated)
+        }
     }
 
     suspend fun resetVirtualBalance() = withContext(Dispatchers.IO) {

@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -14,7 +16,7 @@ import androidx.room.TypeConverters
         ResponsibleSettingsEntity::class,
         UserSettingsEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -26,6 +28,20 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userSettingsDao(): UserSettingsDao
 
     companion object {
+        // Keeps wallet and predictions when real-odds columns are added.
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE matches ADD COLUMN statusShort TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE matches ADD COLUMN oddsUpdatedAt INTEGER NOT NULL DEFAULT 0")
+                listOf(
+                    "oddHome", "oddDraw", "oddAway", "oddDc1x", "oddDc12", "oddDcx2",
+                    "oddOver25", "oddUnder25", "oddOver15", "oddUnder15", "oddBttsYes", "oddBttsNo"
+                ).forEach { col ->
+                    db.execSQL("ALTER TABLE matches ADD COLUMN $col REAL NOT NULL DEFAULT 0.0")
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -35,7 +51,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "playzone_database.db"
-                ).fallbackToDestructiveMigration(true).build()
+                ).addMigrations(MIGRATION_2_3).fallbackToDestructiveMigration(true).build()
                 INSTANCE = instance
                 instance
             }

@@ -20,6 +20,22 @@ interface MatchDao {
     @Update
     suspend fun updateMatch(match: MatchEntity)
 
+    @Query("SELECT * FROM matches WHERE id IN (:ids)")
+    suspend fun getMatchesByIds(ids: List<String>): List<MatchEntity>
+
+    @Query("SELECT * FROM matches WHERE status = 'LIVE' AND id LIKE 'api_%'")
+    suspend fun getLiveApiMatches(): List<MatchEntity>
+
+    @Query("SELECT MAX(oddsUpdatedAt) FROM matches")
+    suspend fun maxOddsUpdatedAt(): Long?
+
+    @Query("DELETE FROM matches WHERE id NOT LIKE 'api_%'")
+    suspend fun deleteDemoMatches()
+
+    // Old finished/unreferenced API matches (kept if a prediction points at them)
+    @Query("DELETE FROM matches WHERE id LIKE 'api_%' AND matchDate < :minDate AND id NOT IN (SELECT matchId FROM predictions)")
+    suspend fun deleteOldApiMatches(minDate: String)
+
     @Query("DELETE FROM matches")
     suspend fun clearAll()
 }
@@ -31,6 +47,9 @@ interface PredictionDao {
 
     @Query("SELECT * FROM predictions WHERE status = 'PENDING'")
     fun getActivePredictions(): Flow<List<PredictionEntity>>
+
+    @Query("SELECT * FROM predictions WHERE status = 'PENDING'")
+    suspend fun getPendingPredictions(): List<PredictionEntity>
 
     @Query("SELECT * FROM predictions WHERE id = :id LIMIT 1")
     suspend fun getPredictionById(id: Long): PredictionEntity?

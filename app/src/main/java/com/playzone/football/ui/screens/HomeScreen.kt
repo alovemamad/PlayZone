@@ -317,7 +317,7 @@ fun HomeScreen(
                 }
             }
             LeagueFilterBar(
-                leagues = viewModel.leagues,
+                leagues = viewModel.activeLeagues.collectAsStateWithLifecycle().value,
                 selectedLeagueId = selectedLeagueId,
                 onLeagueSelect = { viewModel.selectLeagueFilter(it) }
             )

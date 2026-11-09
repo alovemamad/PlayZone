@@ -255,7 +255,15 @@ private fun PredictionItemCard(
             }
 
             // If pending, allow simulated educational resolution
-            if (prediction.status == PredictionStatus.PENDING) {
+            if (prediction.status == PredictionStatus.PENDING && prediction.matchId.startsWith("api_")) {
+                // Real matches settle automatically from the official final score.
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "در انتظار نتیجه رسمی بازی؛ پس از پایان بازی خودکار تسویه می‌شود.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextGrayMuted
+                )
+            } else if (prediction.status == PredictionStatus.PENDING) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),

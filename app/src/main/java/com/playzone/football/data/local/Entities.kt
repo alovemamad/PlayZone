@@ -34,7 +34,21 @@ data class MatchEntity(
     val simOverProb: Int,
     val simUnderProb: Int,
     val eventsJson: String,
-    val statsJson: String = "{}"
+    val statsJson: String = "{}",
+    val statusShort: String = "",
+    val oddsUpdatedAt: Long = 0L,
+    val oddHome: Double = 0.0,
+    val oddDraw: Double = 0.0,
+    val oddAway: Double = 0.0,
+    val oddDc1x: Double = 0.0,
+    val oddDc12: Double = 0.0,
+    val oddDcx2: Double = 0.0,
+    val oddOver25: Double = 0.0,
+    val oddUnder25: Double = 0.0,
+    val oddOver15: Double = 0.0,
+    val oddUnder15: Double = 0.0,
+    val oddBttsYes: Double = 0.0,
+    val oddBttsNo: Double = 0.0
 )
 
 @Entity(tableName = "predictions")
