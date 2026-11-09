@@ -130,7 +130,8 @@ class ApiSyncEngine(private val database: AppDatabase) {
         for (day in listOf(today, today.plusDays(1))) {
             try {
                 spend()
-                val res = api.getFixturesByDate(key, day.toString(), tzName)
+                // 🌟 این خط اصلاح شد تا پارامترها با ApiService همخوانی داشته باشند
+                val res = api.getFixturesByDate(key, day.toString(), season = 2024, timezone = tzName)
                 val err = errorText(res.errors)
                 if (err != null) {
                     firstError = firstError ?: err
