@@ -1,0 +1,49 @@
+<resources>
+    <string name="app_name">PlayZone</string>
+    <string name="nav_home">خانه</string>
+    <string name="nav_matches">مسابقات</string>
+    <string name="nav_predictions">پیش‌بینی‌ها</string>
+    <string name="nav_wallet">کیف پول</string>
+    <string name="nav_profile">پروفایل</string>
+
+    <!-- General and Virtual Simulator Notices -->
+    <string name="virtual_notice_permanent">کلیه اعتبارات و پیش‌بینی‌ها کاملاً مجازی هستند و فاقد هرگونه ارزش مادی یا پولی می‌باشند و امکان خرید، فروش، برداشت یا تبدیل آن‌ها وجود ندارد.</string>
+    <string name="simulated_odds_notice">احتمالات نمایش داده شده صرفاً شبیه‌سازی آماری و آموزشی هستند و ارتباطی با ضرایب سایت‌های شرط‌بندی ندارند.</string>
+    <string name="playzone_credit_currency">اعتبار مجازی</string>
+    <string name="demo_mode_badge">حالت شبیه‌ساز آفلاین</string>
+    <string name="demo_mode_desc">داده‌ها و رویدادها در حالت شبیه‌سازی واقعی بارگذاری شده‌اند.</string>
+
+    <!-- Match Categories -->
+    <string name="matches_live">زنده</string>
+    <string name="matches_upcoming">پیش‌رو</string>
+    <string name="matches_finished">پایان‌یافته</string>
+    <string name="matches_all">همه مسابقات</string>
+
+    <!-- Outcomes -->
+    <string name="outcome_home">برد میزبان</string>
+    <string name="outcome_draw">مساوی</string>
+    <string name="outcome_away">برد میهمان</string>
+
+    <!-- Wallet & Credits -->
+    <string name="wallet_title">کیف پول مجازی</string>
+    <string name="wallet_balance_label">موجودی اعتبار مجازی</string>
+    <string name="wallet_reset_credits">شارژ مجدد اعتبار رایگان</string>
+    <string name="wallet_reset_dialog_title">شارژ اعتبار هدیه</string>
+    <string name="wallet_reset_dialog_desc">موجودی مجازی شما به ۱۰۰,۰۰۰ اعتبار بازنشانی شد. این اعتبارات صرفاً جنبه آموزشی و سرگرمی دارد.</string>
+
+    <!-- Responsible Gaming -->
+    <string name="responsible_title">استفاده مسئولانه و مدیریت زمان</string>
+    <string name="responsible_session_timer">مدت زمان جلسه جاری</string>
+    <string name="responsible_take_break">استراحت و توقف شبیه‌ساز</string>
+    <string name="responsible_daily_limit">محدودیت روزانه شبیه‌سازی</string>
+    <string name="responsible_helpline_title">آگاهی‌بخشی درباره آسیب‌های قمار واقعی</string>
+    <string name="responsible_helpline_desc">این برنامه شبیه‌ساز آموزشی است. اگر احساس می‌کنید قمار یا رفتارهای پرخطر به زندگی شما آسیب می‌زند، با مشاوران تماس بگیرید.</string>
+
+    <!-- Buttons -->
+    <string name="btn_submit_prediction">ثبت پیش‌بینی مجازی</string>
+    <string name="btn_close">بستن</string>
+    <string name="btn_confirm">تأیید</string>
+    <string name="btn_cancel">انصراف</string>
+    <string name="btn_retry">تلاش مجدد</string>
+    <string name="btn_view_details">مشاهده جزئیات</string>
+</resources>

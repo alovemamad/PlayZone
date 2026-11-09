@@ -1,0 +1,6 @@
+{
+  "name": "PlayZone",
+  "description": "Football match prediction simulator with virtual credits, live matches, educational probabilities, and responsible gaming tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
