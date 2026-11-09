@@ -10,7 +10,7 @@ import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 interface FootballApiService {
-    // نکته مهم: کلمه v3/ از ابتدای آدرس‌ها حذف شد
+    // آدرس‌ها اصلاح شدند (v3 اضافه حذف شد)
     @GET("fixtures")
     suspend fun getLiveFixtures(
         @Header("x-apisports-key") apiKey: String,
@@ -21,6 +21,7 @@ interface FootballApiService {
     suspend fun getFixturesByDate(
         @Header("x-apisports-key") apiKey: String,
         @Query("date") date: String,
+        @Query("season") season: Int = 2024, // حل مشکل 403 (فصل)
         @Query("timezone") timezone: String? = null
     ): ApiFootballResponse<ApiFixtureItem>
 
@@ -67,13 +68,7 @@ object RetrofitClient {
         .addInterceptor(HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         })
-        // این بخش جدید است: کلید را به صورت پیش‌فرض به همه درخواست‌ها اضافه می‌کند
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("x-apisports-key", "4377b2974432543c18543e04d2b3de40")
-                .build()
-            chain.proceed(request)
-        }
+        // اینترسپتور کلید حذف شد تا تداخل پیش نیاید
         .build()
 
     val apiService: FootballApiService by lazy {
