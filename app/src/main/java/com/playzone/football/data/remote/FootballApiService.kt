@@ -10,36 +10,35 @@ import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 interface FootballApiService {
-    @GET("v3/fixtures")
+    // نکته مهم: کلمه v3/ از ابتدای آدرس‌ها حذف شد
+    @GET("fixtures")
     suspend fun getLiveFixtures(
         @Header("x-apisports-key") apiKey: String,
         @Query("live") live: String = "all"
     ): ApiFootballResponse<ApiFixtureItem>
 
-    @GET("v3/fixtures")
+    @GET("fixtures")
     suspend fun getFixturesByDate(
         @Header("x-apisports-key") apiKey: String,
         @Query("date") date: String,
         @Query("timezone") timezone: String? = null
     ): ApiFootballResponse<ApiFixtureItem>
 
-    // ids = "123-456-789" (max 20)
-    @GET("v3/fixtures")
+    @GET("fixtures")
     suspend fun getFixturesByIds(
         @Header("x-apisports-key") apiKey: String,
         @Query("ids") ids: String,
         @Query("timezone") timezone: String? = null
     ): ApiFootballResponse<ApiFixtureItem>
 
-    // One fixture including events and statistics
-    @GET("v3/fixtures")
+    @GET("fixtures")
     suspend fun getFixtureDetail(
         @Header("x-apisports-key") apiKey: String,
         @Query("id") id: Long,
         @Query("timezone") timezone: String? = null
     ): ApiFootballResponse<ApiFixtureItem>
 
-    @GET("v3/odds")
+    @GET("odds")
     suspend fun getOddsByDate(
         @Header("x-apisports-key") apiKey: String,
         @Query("date") date: String,
@@ -48,12 +47,12 @@ interface FootballApiService {
         @Query("timezone") timezone: String? = null
     ): ApiFootballResponse<ApiOddsItem>
 
-    @GET("v3/odds/live")
+    @GET("odds/live")
     suspend fun getLiveOdds(
         @Header("x-apisports-key") apiKey: String
     ): ApiFootballResponse<ApiLiveOddsItem>
 
-    @GET("v3/status")
+    @GET("status")
     suspend fun getApiStatus(
         @Header("x-apisports-key") apiKey: String
     ): ApiStatusResponse
@@ -68,6 +67,13 @@ object RetrofitClient {
         .addInterceptor(HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         })
+        // این بخش جدید است: کلید را به صورت پیش‌فرض به همه درخواست‌ها اضافه می‌کند
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("x-apisports-key", "4377b2974432543c18543e04d2b3de40")
+                .build()
+            chain.proceed(request)
+        }
         .build()
 
     val apiService: FootballApiService by lazy {
